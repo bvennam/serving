@@ -3,6 +3,7 @@ module knative.dev/serving
 go 1.14
 
 require (
+	github.com/Shopify/sarama v1.26.4
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
@@ -39,6 +40,7 @@ require (
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	knative.dev/caching v0.0.0-20200716164533-ea602fec68d6
+	knative.dev/eventing-contrib v0.16.0
 	knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a
 	knative.dev/pkg v0.0.0-20200719210134-1cea86c85f8a
 	knative.dev/test-infra v0.0.0-20200719034534-5adf654f5ed5

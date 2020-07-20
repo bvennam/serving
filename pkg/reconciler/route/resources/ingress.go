@@ -1,12 +1,9 @@
 /*
 Copyright 2018 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     https://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -114,7 +111,12 @@ func MakeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
+			rule2 := makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
+			rules = append(rules, rule2)
 			rule := makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
+			rule2.HTTP.Paths = append(
+				makeHeaderBasedRoutingIngressPaths(r.Namespace, targets, names), rule.HTTP.Paths...)
+			
 			if networkConfig.TagHeaderBasedRouting {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
@@ -148,6 +150,7 @@ func MakeIngressSpec(
 					makeACMEIngressPaths(challengeHosts, []string{domain}), rule.HTTP.Paths...)
 			}
 			rules = append(rules, rule)
+			
 		}
 	}
 
@@ -215,6 +218,16 @@ func makeIngressRule(domains []string, ns string,
 		},
 	}
 }
+func makeHeaderBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
+	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
+
+	for _, name := range names {
+			path := makeAsyncBaseIngressPath(ns, targets[name])
+			paths = append(paths, *path)
+	}
+	return paths
+}
+
 
 func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
@@ -229,6 +242,32 @@ func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.Revis
 
 	return paths
 }
+
+func makeAsyncBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
+	// Optimistically allocate |targets| elements.
+	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
+	for _, t := range targets {
+		if t.Percent == nil || *t.Percent == 0 {
+			continue
+		}
+
+		splits = append(splits, netv1alpha1.IngressBackendSplit{
+			IngressBackend: netv1alpha1.IngressBackend{
+				ServiceName:      t.ServiceName + "-async",
+				ServiceNamespace: ns,
+				ServicePort:      intstr.FromInt(80),
+			},
+			Percent: int(*t.Percent),
+		})
+
+	}
+
+	return &netv1alpha1.HTTPIngressPath{
+		Headers: map[string]netv1alpha1.HeaderMatch{"Prefer": {Exact: "respond-async"}},
+		Splits: splits,
+	}
+}
+
 
 func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.

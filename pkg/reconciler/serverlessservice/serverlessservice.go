@@ -199,6 +199,26 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
 	}
 
+	asyncEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get("async-service")
+	if err != nil {
+		return fmt.Errorf("failed to get async service endpoints: %w", err)
+	}
+
+	// BMV TODO: This check prevents this code from failing when running multiple times.
+	// BMV TODO: The endpoints also need to be deleted when the service is deleted
+	asn := sks.Name + "-async"
+	_, err = r.endpointsLister.Endpoints(sks.Namespace).Get(asn)
+	if apierrs.IsNotFound(err) {
+		if _, err = r.kubeclient.CoreV1().Endpoints(sks.Namespace).Create(resources.MakeAsyncEndpoints(sks, asyncEps)); err != nil {
+			return fmt.Errorf("BMV failed to create async K8s Endpoints: %w", err)
+		}
+		logger.Info("BMV Created K8s Endpoints: ", sks.Name)
+
+		if err != nil {
+			return fmt.Errorf("BMV failed to get async service endpoints: %w", err)
+		}
+	}
+
 	psn := sks.Status.PrivateServiceName
 	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
 	if err != nil {
@@ -336,11 +356,17 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		logger.Info("SKS has no private service; creating.")
 		sks.Status.MarkEndpointsNotReady("CreatingPrivateService")
 		svc = resources.MakePrivateService(sks, selector)
+		svcasync := resources.MakeAsyncService(sks, selector)
 		svc, err = r.kubeclient.CoreV1().Services(sks.Namespace).Create(svc)
 		if err != nil {
 			return fmt.Errorf("failed to create private K8s Service: %w", err)
 		}
 		logger.Info("Created private K8s service: ", svc.Name)
+		svcasync, err = r.kubeclient.CoreV1().Services(sks.Namespace).Create(svcasync)
+		if err != nil {
+			return fmt.Errorf("failed to create async K8s Service: %w", err)
+		}
+		logger.Info("Created async K8s service: ", svcasync.Name)
 	} else if err != nil {
 		return fmt.Errorf("failed to get private K8s Service: %w", err)
 	} else if !metav1.IsControlledBy(svc, sks) {
