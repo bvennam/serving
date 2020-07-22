@@ -3,7 +3,6 @@ module knative.dev/serving
 go 1.14
 
 require (
-	github.com/Shopify/sarama v1.26.4
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
@@ -16,7 +15,9 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/mailru/easyjson v0.7.1-0.20191009090205-6c0755d89d1e // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
@@ -31,6 +32,7 @@ require (
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
 	google.golang.org/api v0.29.0
 	google.golang.org/grpc v1.30.0
+	gopkg.in/yaml.v3 v3.0.0-20191026110619-0b21df46bc1d // indirect
 	istio.io/api v0.0.0-20200512234804-e5412c253ffe
 	istio.io/client-go v0.0.0-20200513000250-b1d6e9886b7b
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
@@ -40,7 +42,6 @@ require (
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	knative.dev/caching v0.0.0-20200716164533-ea602fec68d6
-	knative.dev/eventing-contrib v0.16.0
 	knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a
 	knative.dev/pkg v0.0.0-20200719210134-1cea86c85f8a
 	knative.dev/test-infra v0.0.0-20200719034534-5adf654f5ed5

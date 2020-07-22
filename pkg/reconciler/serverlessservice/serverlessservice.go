@@ -199,7 +199,9 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
 	}
 
-	asyncEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get("async-service")
+	/////TODO: NEED TO RECONCILE??  
+	/////TODO: MOVE ASYNC EPS CREATION INTO ITS OWN FUNC
+	asyncEps, err := r.endpointsLister.Endpoints("knative-eventing").Get("async-service")
 	if err != nil {
 		return fmt.Errorf("failed to get async service endpoints: %w", err)
 	}
