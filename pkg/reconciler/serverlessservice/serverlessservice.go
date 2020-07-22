@@ -73,6 +73,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.Serverl
 
 	for i, fn := range []func(context.Context, *netv1alpha1.ServerlessService) error{
 		r.reconcilePrivateService, // First make sure our data source is setup.
+		r.reconcileAsyncService,
 		r.reconcilePublicService,
 		r.reconcilePublicEndpoints,
 	} {
@@ -358,17 +359,17 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		logger.Info("SKS has no private service; creating.")
 		sks.Status.MarkEndpointsNotReady("CreatingPrivateService")
 		svc = resources.MakePrivateService(sks, selector)
-		svcasync := resources.MakeAsyncService(sks, selector)
+		// svcasync := resources.MakeAsyncService(sks, selector)
 		svc, err = r.kubeclient.CoreV1().Services(sks.Namespace).Create(svc)
 		if err != nil {
 			return fmt.Errorf("failed to create private K8s Service: %w", err)
 		}
 		logger.Info("Created private K8s service: ", svc.Name)
-		svcasync, err = r.kubeclient.CoreV1().Services(sks.Namespace).Create(svcasync)
-		if err != nil {
-			return fmt.Errorf("failed to create async K8s Service: %w", err)
-		}
-		logger.Info("Created async K8s service: ", svcasync.Name)
+		// svcasync, err = r.kubeclient.CoreV1().Services(sks.Namespace).Create(svcasync)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to create async K8s Service: %w", err)
+		// }
+		// logger.Info("Created async K8s service: ", svcasync.Name)
 	} else if err != nil {
 		return fmt.Errorf("failed to get private K8s Service: %w", err)
 	} else if !metav1.IsControlledBy(svc, sks) {
@@ -394,6 +395,51 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	logger.Debug("Done reconciling private K8s service: ", svc.Name)
 	return nil
 }
+
+func (r *reconciler) reconcileAsyncService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
+	logger := logging.FromContext(ctx)
+
+	// BMV TODO: remove selector, not needed for async service
+	selector, err := r.getSelector(sks)
+	if err != nil {
+		return fmt.Errorf("error retrieving deployment selector spec: %w", err)
+	}
+
+	sn := sks.Name + "-async"
+	svcasync, err := r.serviceLister.Services(sks.Namespace).Get(sn)	
+	if apierrs.IsNotFound(err) {
+		logger.Info("SKS has no async service; creating.")
+		// sks.Status.MarkEndpointsNotReady("CreatingAsyncService")
+		svcasync := resources.MakeAsyncService(sks, selector)
+		svcasync, err = r.kubeclient.CoreV1().Services(sks.Namespace).Create(svcasync)
+		if err != nil {
+			return fmt.Errorf("failed to create async K8s Service: %w", err)
+		}
+		logger.Info("Created async K8s service: ", svcasync.Name)
+	} else if err != nil {
+		return fmt.Errorf("failed to get async K8s Service: %w", err)
+	} else if !metav1.IsControlledBy(svcasync, sks) {
+		// sks.Status.MarkEndpointsNotOwned("Service", svcasync.Name)
+		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, svcasync.Name)
+	} else {
+		tmpl := resources.MakeAsyncService(sks, selector)
+		want := svcasync.DeepCopy()
+		want.Spec.Ports = tmpl.Spec.Ports
+		want.Spec.Selector = nil
+
+		if !equality.Semantic.DeepEqual(want.Spec, svcasync.Spec) {
+			logger.Info("Public K8s Service changed; reconciling: ", sn, cmp.Diff(want.Spec, svcasync.Spec))
+			if _, err = r.kubeclient.CoreV1().Services(sks.Namespace).Update(want); err != nil {
+				return fmt.Errorf("failed to update public K8s Service: %w", err)
+			}
+		}
+	}
+
+	// sks.Status.AsyncServiceName = svcasync.Name
+	logger.Debug("Done reconciling private K8s service: ", svcasync.Name)
+	return nil
+}
+
 
 func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
 	scale, err := presources.GetScaleResource(sks.Namespace, sks.Spec.ObjectRef, r.psInformerFactory)

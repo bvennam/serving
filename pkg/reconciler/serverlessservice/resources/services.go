@@ -168,6 +168,8 @@ func MakeAsyncService(sks *v1alpha1.ServerlessService, selector map[string]strin
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(sks.Name, "-async"),
 			Namespace: sks.Namespace,
+			///// BMV TODO: Make a similar owner reference for the async consumer in eventing
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
